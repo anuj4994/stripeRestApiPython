@@ -15,6 +15,7 @@ class makePayment(Resource):
         print ("Attempting charge...")
         resp = stripe.Charge.create(amount=amount, currency='usd', source=source, description=description)
         print ('Success')
+        return resp
 class saveCustomer(Resource):
     def post(self):
         email = request.form["email"]
@@ -22,7 +23,7 @@ class saveCustomer(Resource):
 		# stripe.api_key = 'sk_test_BQokikJOvBiI2HlWgH4olfQ2'#starting with sk...
         customer = stripe.Customer.create(email=email,source=source)
         print ('Success')
-        return customer.id
+        return customer
 
 class payWithCustomer(Resource):
     def post(self):
@@ -31,6 +32,7 @@ class payWithCustomer(Resource):
         description = request.form['description']
         # stripe.api_key = 'sk_test_BQokikJOvBiI2HlWgH4olfQ2'#starting with sk...
         charge = stripe.Charge.create( amount=amount,currency="usd",customer=customerId,description=description)
+        return charge
 
 class createConnectAccount(Resource):
     def post(self):
@@ -52,10 +54,58 @@ class connectCharge(Resource):
           currency="usd",
           source=source,
           destination={
-            "amount":amount - 100,
+            "amount":int(amount) - 100,
             "account": account,
           }
         )
+        return charge
+
+class retrieveCustomer(Resource):
+    def post(self):
+        customerId = request.form["customerId"]
+        customer = stripe.Customer.retrieve(customerId)
+        return customer
+
+class changeDefaultCard(Resource):
+    def post(self):
+        customerId = request.form["customerId"]
+        source = request.form["source"]
+        cu = stripe.Customer.retrieve(customerId)
+        cu.default_source = source
+        cu.save()
+
+class createCard(Resource):
+    def post(self):
+        customerId = request.form["customerId"]
+        source = request.form["source"]
+        customer = stripe.Customer.retrieve(customerId)
+        card = customer.sources.create(source="tok_amex")
+        return card
+
+class retrieveCard(Resource):
+    def post(self):
+        customerId = request.form["customerId"]
+        cardId = request.form["cardId"]
+        customer = stripe.Customer.retrieve(customerId)
+        card = customer.sources.retrieve(cardId)
+        return card
+
+class deleteCard(Resource):
+    def post(self):
+        customerId = request.form["customerId"]
+        cardId = request.form["cardId"]
+        customer = stripe.Customer.retrieve(customerId)
+        response = customer.sources.retrieve(cardId).delete()
+        return response
+
+class retriveAllCards(Resource):
+    def post(self):
+        customerId = request.form["customerId"]
+        index = request.form["index"]
+        if index is None:
+            index = 0
+        return stripe.Customer.retrieve(customerId).sources.all(limit=3, object='card',  starting_after = index)
+
 
 
 
@@ -64,6 +114,12 @@ api.add_resource(saveCustomer, '/saveCustomer/')
 api.add_resource(payWithCustomer, '/payWithCustomer/')
 api.add_resource(createConnectAccount,'/createConnectAccount/')
 api.add_resource(connectCharge,'/connectCharge/')
+api.add_resource(retrieveCustomer,'/retrieveCustomer/')
+api.add_resource(createCard,'/createCard/')
+api.add_resource(retrieveCard,'/retrieveCard/')
+api.add_resource(deleteCard,'/deleteCard/')
+api.add_resource(retriveAllCards,'/retriveAllCards/')
+api.add_resource(changeDefaultCard,'/changeDefaultCard/')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0',port='7002')
